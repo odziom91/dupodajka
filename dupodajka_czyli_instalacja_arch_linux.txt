@@ -1,0 +1,177 @@
+Instalacja Arch:
+
+### test łącza
+ping archlinux.org
+
+### sprawdzenie EFI
+ls /sys/firmware/efi/efivars
+
+
+##### PRZYGOTOWANIE DYSKU
+##### POMIŃ JEŚLI NIE DOTYCZY NOWEGO DYSKU
+##### LUB NIE ZMIENIASZ TYPU TABLICY PLIKÓW
+
+### sprawdzenie tablicy plików na dyskach
+parted -l | less
+### tworzenie nowej tablicy - UWAGA! NISZCZY OBECNĄ TABLICĘ!
+parted -s /dev/sdX mklabel gpt
+lub
+parted -s /dev/sdX mklabel msdos
+
+##### PARTYCJONOWANIE DYSKU
+##### UŻYWAĆ Z OSTROŻNOŚCIĄ, GROZI UTRATĄ DANYCH
+##### BACKUP TO PODSTAWA
+
+### partycjonowanie
+# sprawdzenie partycji
+lsblk
+# tworzenie/edycja partycji
+cfdisk /dev/sdX
+cfdisk /dev/nvme0nX
+# format partycji
+ext4:
+mkfs.ext4 -L nazwa_labelu /dev/sdXY
+fat32:
+mkfs.fat -F32 -n nazwa_labelu /dev/sdXY
+swap:
+mkswap -L nazwa_labelu /dev/sdXY
+btrfs - dla zaawansowanych, mogą wystąpić problemy z danymi
+mkfs.btrfs -L nazwa_labelu -f /dev/sdXY
+
+##### MONTOWANIE DYSKÓW
+#####
+##### MINIMALNA KONFIGURACJA PRZY EFI:
+##### / jako EXT4
+##### /boot/efi jako FAT32
+##### swap jako partycja wymiany lub swapfile
+##### MINIMALNA KONFIGURACJA PRZY LEGACY:
+##### / jako EXT4 + flaga bootowania!
+##### swap jako partycja wymiany lub swapfile
+#####
+##### OPCJONALNIE:
+##### /home - jako EXT4
+##### reszta punktów montowania według uznania
+#####
+
+### montowanie partycji /
+unmount /mnt
+mount /dev/sdXY /mnt
+### montowanie /boot/efi
+mkdir -p /mnt/boot/efi
+unmount /mnt/boot/efi
+mount /dev/sdXY /mnt/boot/efi
+### montowanie partycji wymiany
+swapon /dev/sdXY
+### montowanie /home
+mkdir -p /mnt/home
+unmount /mnt/home
+mount /dev/sdXY /mnt/home
+
+### sprawdzenie zamontowanych partycji
+lsblk
+
+##### INSTALACJA BASE - do wyboru jeden z czterech kerneli
+
+### Kernel Vanilla (stable)
+pacman -Syy
+pacstrap /mnt base base-devel linux linux-firmware linux-headers nano mc sudo
+
+### Kernel Zen
+pacman -Syy
+pacstrap /mnt base base-devel linux-zen linux-firmware linux-zen-headers nano mc sudo
+
+### Kernel LTS
+pacman -Syy
+pacstrap /mnt base base-devel linux-lts linux-firmware linux-lts-headers nano mc sudo
+
+### Kernel Hardened
+pacman -Syy
+pacstrap /mnt base base-devel linux-hardened linux-firmware linux-hardened-headers nano mc sudo
+
+##### KONFIGURACJA SYSTEMU
+##### ETAP 1 - konfiguracja poza CHROOT
+### generowanie pliku fstab
+genfstab -U /mnt >> /mnt/etc/fstab
+### pacman mirrorlist
+cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
+
+##### ETAP 2 - konfiguracja w CHROOT
+### chroot
+arch-chroot /mnt
+### hostname
+echo twoj_hostname > /etc/hostname
+echo 127.0.0.1 localhost > /etc/hosts
+echo ::1 localhost >> /etc/hosts
+echo 127.0.1.1 twoj_hostname.localdomain twoj_hostname >> /etc/hosts
+### hasło root
+passwd
+### tworzenie grupy użytkowników
+groupadd users
+### dodanie użytkownika
+useradd -m -g users nazwa_uzytkownika
+passwd nazwa_uzytkownika
+
+### czas
+ln -sf /usr/share/zoneinfo/Europe/Warsaw /etc/localtime
+timedatectl set-timezone "Europe/Warsaw"
+hwclock --systohc
+timedatectl set-ntp true
+
+### lokalizacja
+nano /etc/locale.gen
+locale-gen
+echo LANG=pl_PL.UTF-8 > /etc/locale.conf
+
+### sieć
+pacman -S networkmanager nm-connection-editor dhcpcd wpa_supplicant dialog rp-pppoe modemmanager mobile-broadband-provider-info usb_modeswitch
+systemctl enable dhcpcd.service
+
+### desktop
+GNOME:
+pacman -S gnome gnome-extra
+KDE:
+pacman -S plasma kde-applications
+MATE:
+pacman -S mate mate-extra
+XFCE:
+pacman -S xfce4 xfce4-goodies fileroller gvfs
+CINNAMON:
+pacman -S cinnamon cinnamon-translations
+
+### pozostałe
+pacman -S ttf-inconsolata ttf-dejavu ttf-font-awesome ttf-joypixels xdg-user-dirs pulseaudio pulseaudio-alsa pavucontrol mpg123 libcdio
+
+### menedżer logowania:
+pacman -S lightdm lightdm-gtk-greeter lightdm-gtk-greeter-settings
+systemctl enable lightdm.service
+
+### video
+pacman -S xf86-video-vesa
+pacman -S mesa
+pacman -S xorg-server xorg-xinit xorg-xrandr arandr xterm
+NVIDIA (DKMS):
+pacman -S nvidia-dkms nvidia-utils nvidia-settings
+NVIDIA (bez DKMS)
+pacman -S nvidia nvidia-utils nvidia-settings
+AMD:
+pacman -S xf86-video-amdgpu
+INTEL:
+domyślnie MESA
+dla kart wspierającycg obsługę Vulkan
+pacman -S vulkan-intel
+
+### obsługa NTFS
+pacman -S ntfs-3g
+
+### GRUB
+# EFI
+pacman -S grub efibootmgr os-prober
+grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB
+# LEGACY
+pacman -S grub os-prober
+mkdir -p /boot/grub/
+grub-install --target=i386-pc /dev/sdX
+grub-mkconfig -o /boot/grub/grub.cfg
+
+### koniec chroot
+exit
