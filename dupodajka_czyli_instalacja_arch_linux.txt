@@ -124,6 +124,7 @@ echo LANG=pl_PL.UTF-8 > /etc/locale.conf
 
 ### sieć
 pacman -S networkmanager nm-connection-editor dhcpcd wpa_supplicant dialog rp-pppoe modemmanager mobile-broadband-provider-info usb_modeswitch
+systemctl enable NetworkManager.service
 systemctl enable dhcpcd.service
 
 ### desktop
