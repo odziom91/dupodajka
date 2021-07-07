@@ -158,7 +158,10 @@ AMD:
 pacman -S xf86-video-amdgpu
 INTEL:
 domyślnie MESA
-dla kart wspierającycg obsługę Vulkan
+VIRTUALBOX:
+pacman -S virtualbox-guest-utils xf86-video-vmware
+systemctl enable vboxservice.service
+Dodatkowo - dla kart wspierających obsługę Vulkan
 pacman -S vulkan-intel
 
 ### obsługa NTFS
